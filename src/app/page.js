@@ -1,103 +1,135 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+import ResumeForm from '@/components/ResumeForm'
+import ResumePreview from '@/components/ResumePreview'
+import SavedResumes from '@/components/SavedResumes'
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [generatedResume, setGeneratedResume] = useState(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [savedResumes, setSavedResumes] = useState([])
+  const [activeTab, setActiveTab] = useState('create') // 'create' or 'saved'
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Load saved resumes from localStorage on component mount
+  useEffect(() => {
+    const saved = localStorage.getItem('savedResumes')
+    if (saved) {
+      try {
+        setSavedResumes(JSON.parse(saved))
+      } catch (error) {
+        console.error('Error loading saved resumes:', error)
+        setSavedResumes([])
+      }
+    }
+  }, [])
+
+  // Save resume to localStorage
+  const saveResume = (resume, metadata = {}) => {
+    const resumeData = {
+      id: Date.now().toString(),
+      content: resume,
+      metadata: {
+        createdAt: new Date().toISOString(),
+        name: metadata.name || 'Resume',
+        jobTitle: metadata.jobTitle || '',
+        company: metadata.company || '',
+        ...metadata
+      }
+    }
+
+    const updatedResumes = [...savedResumes, resumeData]
+    setSavedResumes(updatedResumes)
+    localStorage.setItem('savedResumes', JSON.stringify(updatedResumes))
+    
+    return resumeData.id
+  }
+
+  // Delete resume from localStorage
+  const deleteResume = (resumeId) => {
+    const updatedResumes = savedResumes.filter(resume => resume.id !== resumeId)
+    setSavedResumes(updatedResumes)
+    localStorage.setItem('savedResumes', JSON.stringify(updatedResumes))
+  }
+
+  // Load a saved resume for viewing/editing
+  const loadResume = (resumeId) => {
+    const resume = savedResumes.find(r => r.id === resumeId)
+    if (resume) {
+      setGeneratedResume(resume.content)
+      setActiveTab('create')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            AI Resume Builder
+          </h1>
+          <p className="text-lg text-gray-600">
+            Upload your resume to create a professional, optimized version. Add a job description to tailor it for a specific role.
+          </p>
         </div>
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="flex bg-white rounded-lg shadow-sm border">
+            <button
+              onClick={() => setActiveTab('create')}
+              className={`px-6 py-3 font-medium rounded-l-lg transition-colors ${
+                activeTab === 'create'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              Create Resume
+            </button>
+            <button
+              onClick={() => setActiveTab('saved')}
+              className={`px-6 py-3 font-medium rounded-r-lg transition-colors relative ${
+                activeTab === 'saved'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              Saved Resumes
+              {savedResumes.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {savedResumes.length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'create' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <ResumeForm 
+                onResumeGenerated={setGeneratedResume}
+                isGenerating={isGenerating}
+                setIsGenerating={setIsGenerating}
+              />
+            </div>
+            
+            <div>
+              <ResumePreview 
+                resume={generatedResume}
+                isGenerating={isGenerating}
+                onSaveResume={saveResume}
+              />
+            </div>
+          </div>
+        ) : (
+          <SavedResumes
+            savedResumes={savedResumes}
+            onDeleteResume={deleteResume}
+            onLoadResume={loadResume}
+          />
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
-  );
+  )
 }
