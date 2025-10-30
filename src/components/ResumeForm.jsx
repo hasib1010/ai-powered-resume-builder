@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 
-const ResumeForm = ({ onResumeGenerated, isGenerating, setIsGenerating }) => {
+const ResumeForm = ({ onResumeGenerated }) => {
   const [jobDescription, setJobDescription] = useState('')
   const [resumeFile, setResumeFile] = useState(null)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState('')
-  const [apiProgress, setApiProgress] = useState({ step: 0, total: 2 })
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
@@ -27,7 +27,7 @@ const ResumeForm = ({ onResumeGenerated, isGenerating, setIsGenerating }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!resumeFile) {
       setError('Please upload your current resume')
       return
@@ -35,77 +35,38 @@ const ResumeForm = ({ onResumeGenerated, isGenerating, setIsGenerating }) => {
 
     setIsGenerating(true)
     setError('')
-    setApiProgress({ step: 0, total: 2 })
+    setProgress('')
 
     try {
-      // API 1: Generate initial resume (max roles within 4K limit)
-      setProgress('API 1: Generating initial resume with maximum roles...')
-      setApiProgress({ step: 1, total: 2 })
-      
+      setProgress('Analyzing your resume and extracting all roles...')
+
       const formData = new FormData()
       formData.append('resume', resumeFile)
       formData.append('jobDescription', jobDescription)
 
-      console.log('Calling API 1: Initial resume generation...')
-      const response1 = await fetch('/api/generate-initial-resume', {
+      console.log('Generating comprehensive resume...')
+      const response = await fetch('/api/generate-resume', {
         method: 'POST',
         body: formData,
       })
 
-      if (!response1.ok) {
-        const errorData = await response1.json()
-        throw new Error(errorData.error || 'Failed to generate initial resume')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to generate resume')
       }
 
-      const data1 = await response1.json()
-      
-      console.log('API 1 Results:')
-      console.log('- Initial resume length:', data1.initialResumeLength)
-      console.log('- Original text length:', data1.originalTextLength)
+      const data = await response.json()
 
-      // API 2: Analyze gaps and complete the resume
-      setProgress('API 2: Analyzing missing roles and completing resume...')
-      setApiProgress({ step: 2, total: 2 })
-
-      console.log('Calling API 2: Gap analysis and completion...')
-      const response2 = await fetch('/api/complete-resume', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          initialResume: data1.initialResume,
-          originalText: data1.originalText,
-          jobDescription: data1.jobDescription
-        }),
-      })
-
-      if (!response2.ok) {
-        const errorData = await response2.json()
-        throw new Error(errorData.error || 'Failed to complete resume')
-      }
-
-      const data2 = await response2.json()
-
-      console.log('API 2 Results:')
-      console.log('- Complete resume length:', data2.completeResumeLength)
-      console.log('- Improvement:', data2.completeResumeLength - data2.initialResumeLength, 'characters added')
+      console.log('Resume generation complete!')
+      console.log('- Original text length:', data.originalTextLength, 'characters')
+      console.log('- Generated resume length:', data.generatedLength, 'characters')
 
       setProgress('Resume generation complete! All roles included.')
-      
-      // Final result
-      const finalResume = data2.completeResume
-      
-      console.log('=== TWO-API PROCESS COMPLETE ===')
-      console.log('Original text:', data1.originalTextLength, 'characters')
-      console.log('API 1 output:', data2.initialResumeLength, 'characters')
-      console.log('API 2 output:', data2.completeResumeLength, 'characters')
-      console.log('Content expansion:', ((data2.completeResumeLength / data2.initialResumeLength - 1) * 100).toFixed(1) + '%')
 
-      onResumeGenerated(finalResume)
+      onResumeGenerated(data.resume)
 
     } catch (err) {
-      console.error('Two-API resume generation error:', err)
+      console.error('Resume generation error:', err)
       setError(err.message)
       setProgress('')
     } finally {
@@ -115,10 +76,10 @@ const ResumeForm = ({ onResumeGenerated, isGenerating, setIsGenerating }) => {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold mb-6">Two-API Complete Resume Generator</h2>
+      <h2 className="text-2xl font-semibold mb-6">AI Resume Generator</h2>
       <p className="text-sm text-gray-600 mb-6">
-        <strong>Advanced System:</strong> First API generates maximum content within limits, 
-        second API analyzes gaps and ensures ALL roles are included.
+        <strong>Comprehensive Analysis:</strong> Our AI extracts EVERY role from your resume,
+        maintains exact company names and dates, and creates a complete professional resume.
       </p>
       
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -171,10 +132,10 @@ const ResumeForm = ({ onResumeGenerated, isGenerating, setIsGenerating }) => {
           {isGenerating ? (
             <div className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-              Two-API Processing... ({apiProgress.step}/{apiProgress.total})
+              Generating Resume...
             </div>
           ) : (
-            'Generate Complete Resume (Two-API System)'
+            'Generate Complete Resume'
           )}
         </button>
       </form>
@@ -182,23 +143,21 @@ const ResumeForm = ({ onResumeGenerated, isGenerating, setIsGenerating }) => {
       {isGenerating && (
         <div className="mt-4 space-y-3">
           {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${(apiProgress.step / apiProgress.total) * 100}%` }}
-            ></div>
+          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div className="bg-blue-600 h-2 rounded-full animate-pulse w-full"></div>
           </div>
-          
+
           {/* Progress Description */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-blue-700 text-sm">
-              <strong>🔄 Two-API System:</strong><br/>
-              <strong>API 1:</strong> Generate maximum content within 4K token limit<br/>
-              <strong>API 2:</strong> Analyze gaps, find missing roles, complete resume<br/>
-              <strong>Result:</strong> 100% role coverage guaranteed
+              <strong>🔄 Comprehensive Analysis:</strong><br/>
+              ✓ Extracting ALL roles from your resume<br/>
+              ✓ Using EXACT company names and dates<br/>
+              ✓ Extracting REAL achievements from source text<br/>
+              ✓ Ensuring complete career history coverage
             </p>
           </div>
-          
+
           {progress && (
             <div className="bg-green-50 border border-green-200 rounded-md p-3">
               <p className="text-green-700 text-sm font-medium">
