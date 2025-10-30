@@ -1,56 +1,104 @@
 // app/(dashboard)/dashboard/page.jsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { 
-  FileText, 
-  TrendingUp, 
-  Download, 
-  Sparkles, 
-  Clock, 
+import {
+  FileText,
+  TrendingUp,
+  Download,
+  Sparkles,
+  Clock,
   ArrowRight,
   Plus,
   Eye,
-  Edit
+  Edit,
+  Loader2
 } from 'lucide-react'
 
 export default function DashboardPage() {
-  // Mock data - replace with real data from API
-  const stats = {
-    totalResumes: 8,
-    monthlyGenerations: 2,
-    generationsLimit: 2, // -1 for unlimited
-    savedResumes: 8,
-    savedLimit: 5, // -1 for unlimited
-    tier: 'FREE' // FREE, PRO, BUSINESS
+  const [stats, setStats] = useState(null)
+  const [recentResumes, setRecentResumes] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+
+      const [statsRes, resumesRes] = await Promise.all([
+        fetch('/api/user/stats'),
+        fetch('/api/resumes')
+      ])
+
+      if (!statsRes.ok || !resumesRes.ok) {
+        throw new Error('Failed to fetch dashboard data')
+      }
+
+      const statsData = await statsRes.json()
+      const resumesData = await resumesRes.json()
+
+      setStats(statsData.stats)
+      setRecentResumes(resumesData.resumes.slice(0, 3))
+    } catch (err) {
+      console.error('Dashboard error:', err)
+      setError('Failed to load dashboard data')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const recentResumes = [
-    {
-      id: '1',
-      title: 'Senior Software Engineer',
-      company: 'Tech Corp',
-      updatedAt: '2 hours ago',
-      preview: 'Experienced software engineer with 8+ years...'
-    },
-    {
-      id: '2',
-      title: 'Product Manager',
-      company: 'StartupXYZ',
-      updatedAt: '1 day ago',
-      preview: 'Results-driven product manager with proven...'
-    },
-    {
-      id: '3',
-      title: 'Data Scientist',
-      company: 'AI Solutions',
-      updatedAt: '3 days ago',
-      preview: 'Data scientist specializing in machine learning...'
-    }
-  ]
+  const formatDate = (dateString) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMs = now - date
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
 
-  const isLimitReached = stats.generationsLimit !== -1 && 
+    if (diffInHours < 1) return 'Just now'
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const getResumePreview = (content) => {
+    if (!content) return 'No preview available'
+    const text = content.replace(/[#*_\[\]]/g, '').substring(0, 150)
+    return text + (content.length > 150 ? '...' : '')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+        <p className="text-red-800">{error}</p>
+        <button
+          onClick={fetchDashboardData}
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Try Again
+        </button>
+      </div>
+    )
+  }
+
+  if (!stats) {
+    return null
+  }
+
+  const isLimitReached = stats.generationsLimit !== -1 &&
                          stats.monthlyGenerations >= stats.generationsLimit
 
   return (
@@ -100,9 +148,11 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-blue-600" />
             </div>
-            <span className="text-green-600 text-sm font-medium">
-              +2 this week
-            </span>
+            {stats.resumesThisWeek > 0 && (
+              <span className="text-green-600 text-sm font-medium">
+                +{stats.resumesThisWeek} this week
+              </span>
+            )}
           </div>
           <h3 className="text-2xl font-bold text-gray-900">{stats.totalResumes}</h3>
           <p className="text-gray-600 text-sm">Total Resumes</p>
@@ -114,9 +164,9 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-indigo-600" />
             </div>
-            {stats.tier === 'FREE' && (
+            {stats.tier === 'FREE' && stats.generationsLimit > 0 && (
               <span className="text-orange-600 text-sm font-medium">
-                {stats.generationsLimit - stats.monthlyGenerations} left
+                {Math.max(0, stats.generationsLimit - stats.monthlyGenerations)} left
               </span>
             )}
           </div>
@@ -137,9 +187,9 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <Download className="w-6 h-6 text-green-600" />
             </div>
-            {stats.tier === 'FREE' && (
+            {stats.tier === 'FREE' && stats.savedLimit > 0 && (
               <span className="text-orange-600 text-sm font-medium">
-                {stats.savedLimit - stats.savedResumes} left
+                {Math.max(0, stats.savedLimit - stats.savedResumes)} left
               </span>
             )}
           </div>
@@ -214,14 +264,14 @@ export default function DashboardPage() {
                     <div className="flex items-center space-x-4 text-sm text-gray-600">
                       <span className="flex items-center space-x-1">
                         <Clock className="w-4 h-4" />
-                        <span>{resume.updatedAt}</span>
+                        <span>{formatDate(resume.updatedAt)}</span>
                       </span>
-                      {resume.company && (
-                        <span>• {resume.company}</span>
+                      {resume.metadata?.company && (
+                        <span>• {resume.metadata.company}</span>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Link
                       href={`/dashboard/resumes/${resume.id}`}
@@ -240,13 +290,16 @@ export default function DashboardPage() {
                     <button
                       className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
                       title="Download"
+                      onClick={() => window.location.href = `/dashboard/resumes/${resume.id}`}
                     >
                       <Download className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
-                
-                <p className="text-gray-600 text-sm line-clamp-2">{resume.preview}</p>
+
+                <p className="text-gray-600 text-sm line-clamp-2">
+                  {getResumePreview(resume.content)}
+                </p>
               </div>
             ))}
           </div>
