@@ -1,0 +1,280 @@
+// app/(dashboard)/dashboard/page.jsx
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { 
+  FileText, 
+  TrendingUp, 
+  Download, 
+  Sparkles, 
+  Clock, 
+  ArrowRight,
+  Plus,
+  Eye,
+  Edit
+} from 'lucide-react'
+
+export default function DashboardPage() {
+  // Mock data - replace with real data from API
+  const stats = {
+    totalResumes: 8,
+    monthlyGenerations: 2,
+    generationsLimit: 2, // -1 for unlimited
+    savedResumes: 8,
+    savedLimit: 5, // -1 for unlimited
+    tier: 'FREE' // FREE, PRO, BUSINESS
+  }
+
+  const recentResumes = [
+    {
+      id: '1',
+      title: 'Senior Software Engineer',
+      company: 'Tech Corp',
+      updatedAt: '2 hours ago',
+      preview: 'Experienced software engineer with 8+ years...'
+    },
+    {
+      id: '2',
+      title: 'Product Manager',
+      company: 'StartupXYZ',
+      updatedAt: '1 day ago',
+      preview: 'Results-driven product manager with proven...'
+    },
+    {
+      id: '3',
+      title: 'Data Scientist',
+      company: 'AI Solutions',
+      updatedAt: '3 days ago',
+      preview: 'Data scientist specializing in machine learning...'
+    }
+  ]
+
+  const isLimitReached = stats.generationsLimit !== -1 && 
+                         stats.monthlyGenerations >= stats.generationsLimit
+
+  return (
+    <div className="space-y-8">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white">
+        <h2 className="text-3xl font-bold mb-2">Welcome back!</h2>
+        <p className="text-blue-100 mb-6">
+          Ready to create your next professional resume?
+        </p>
+        <Link 
+          href="/dashboard/resumes/new"
+          className={`
+            inline-flex items-center space-x-2 bg-white text-blue-600 px-6 py-3 rounded-xl 
+            font-semibold hover:shadow-xl transition-shadow
+            ${isLimitReached ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
+          onClick={(e) => {
+            if (isLimitReached) {
+              e.preventDefault()
+              alert('Monthly generation limit reached. Upgrade to Pro for unlimited generations!')
+            }
+          }}
+        >
+          <Plus className="w-5 h-5" />
+          <span>Create New Resume</span>
+          <ArrowRight className="w-5 h-5" />
+        </Link>
+        
+        {isLimitReached && (
+          <div className="mt-4 bg-white/20 rounded-lg p-4">
+            <p className="text-sm">
+              You've reached your monthly limit. 
+              <Link href="/dashboard/billing" className="underline font-semibold ml-1">
+                Upgrade to Pro
+              </Link> for unlimited resume generations!
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Resumes */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <span className="text-green-600 text-sm font-medium">
+              +2 this week
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">{stats.totalResumes}</h3>
+          <p className="text-gray-600 text-sm">Total Resumes</p>
+        </div>
+
+        {/* Monthly Generations */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-indigo-600" />
+            </div>
+            {stats.tier === 'FREE' && (
+              <span className="text-orange-600 text-sm font-medium">
+                {stats.generationsLimit - stats.monthlyGenerations} left
+              </span>
+            )}
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">
+            {stats.monthlyGenerations}
+            {stats.generationsLimit !== -1 && (
+              <span className="text-gray-400 text-lg">/{stats.generationsLimit}</span>
+            )}
+          </h3>
+          <p className="text-gray-600 text-sm">
+            {stats.generationsLimit === -1 ? 'Unlimited' : 'Monthly Generations'}
+          </p>
+        </div>
+
+        {/* Saved Resumes */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <Download className="w-6 h-6 text-green-600" />
+            </div>
+            {stats.tier === 'FREE' && (
+              <span className="text-orange-600 text-sm font-medium">
+                {stats.savedLimit - stats.savedResumes} left
+              </span>
+            )}
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">
+            {stats.savedResumes}
+            {stats.savedLimit !== -1 && (
+              <span className="text-gray-400 text-lg">/{stats.savedLimit}</span>
+            )}
+          </h3>
+          <p className="text-gray-600 text-sm">Saved Resumes</p>
+        </div>
+
+        {/* Current Plan */}
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">{stats.tier}</h3>
+          <p className="text-gray-600 text-sm mb-3">Current Plan</p>
+          {stats.tier === 'FREE' && (
+            <Link 
+              href="/dashboard/billing"
+              className="text-purple-600 hover:text-purple-700 text-sm font-semibold inline-flex items-center space-x-1"
+            >
+              <span>Upgrade</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Resumes */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Recent Resumes</h3>
+            <p className="text-gray-600 text-sm mt-1">Your latest resume projects</p>
+          </div>
+          <Link 
+            href="/dashboard/resumes"
+            className="text-blue-600 hover:text-blue-700 font-semibold text-sm inline-flex items-center space-x-1"
+          >
+            <span>View All</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {recentResumes.length === 0 ? (
+          <div className="p-12 text-center">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">No resumes yet</h4>
+            <p className="text-gray-600 mb-6">Create your first professional resume to get started</p>
+            <Link 
+              href="/dashboard/resumes/new"
+              className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition font-semibold"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Resume</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {recentResumes.map((resume) => (
+              <div key={resume.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex-1">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                      {resume.title}
+                    </h4>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <span className="flex items-center space-x-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{resume.updatedAt}</span>
+                      </span>
+                      {resume.company && (
+                        <span>• {resume.company}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Link
+                      href={`/dashboard/resumes/${resume.id}`}
+                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      title="View"
+                    >
+                      <Eye className="w-5 h-5" />
+                    </Link>
+                    <Link
+                      href={`/dashboard/resumes/${resume.id}/edit`}
+                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      title="Edit"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </Link>
+                    <button
+                      className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                      title="Download"
+                    >
+                      <Download className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <p className="text-gray-600 text-sm line-clamp-2">{resume.preview}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Tips */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
+        <div className="flex items-start space-x-4">
+          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">Pro Tip</h4>
+            <p className="text-gray-700 mb-4">
+              Tailor your resume for each job application by including specific keywords from the job description. 
+              Our AI can help optimize your resume for specific roles!
+            </p>
+            <Link 
+              href="/dashboard/resumes/new"
+              className="text-blue-600 hover:text-blue-700 font-semibold text-sm inline-flex items-center space-x-1"
+            >
+              <span>Try it now</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
