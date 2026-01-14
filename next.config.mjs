@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['pdf-parse', 'puppeteer', 'mammoth']
-  },
+  // Move serverComponentsExternalPackages to top-level serverExternalPackages
+  serverExternalPackages: ['pdf-parse', 'puppeteer', 'mammoth'],
+
   // Configure webpack to handle pdf-parse properly
   webpack: (config, { isServer }) => {
     if (isServer) {
@@ -13,7 +13,7 @@ const nextConfig = {
         'canvas': 'canvas'
       })
     }
-    
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -23,13 +23,13 @@ const nextConfig = {
         canvas: false,
       }
     }
-    
+
     // Ignore test files and unnecessary files
     config.module.rules.push({
       test: /\.pdf$/,
       type: 'asset/resource',
     })
-    
+
     return config
   },
   // Configure headers for file uploads
@@ -54,8 +54,7 @@ const nextConfig = {
       },
     ]
   },
-  // Enable SWC minification for better performance
-  swcMinify: true,
+  // SWC minification is now enabled by default in Next.js 15
   // Configure image optimization
   images: {
     remotePatterns: [

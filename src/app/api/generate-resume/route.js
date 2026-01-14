@@ -4,6 +4,9 @@ import { NextResponse } from 'next/server'
 import pdf from 'pdf-parse'
 import mammoth from 'mammoth'
 import OpenAI from 'openai'
+import { auth } from '@/lib/auth'
+import connectDB from '@/lib/db/mongodb'
+import Resume from '@/lib/db/models/Resume'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -22,7 +25,7 @@ async function extractTextFromFile(file, fileType) {
       })
       return pdfData.text
     } else if (
-      fileType === 'application/msword' || 
+      fileType === 'application/msword' ||
       fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ) {
       const result = await mammoth.extractRawText({ buffer })
@@ -32,7 +35,7 @@ async function extractTextFromFile(file, fileType) {
     }
   } catch (error) {
     console.error('Error extracting text from file:', error)
-    
+
     if (fileType === 'application/pdf') {
       console.log('Trying alternative PDF parsing...')
       try {
@@ -43,13 +46,22 @@ async function extractTextFromFile(file, fileType) {
         throw new Error(`Failed to extract text from PDF file. Please ensure the PDF contains selectable text and is not image-based.`)
       }
     }
-    
+
     throw new Error(`Failed to extract text from file: ${error.message}`)
   }
 }
 
 export async function POST(request) {
   try {
+    // Check authentication
+    const session = await auth()
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in to generate resumes.' },
+        { status: 401 }
+      )
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: 'OpenAI API key is not configured' },
@@ -91,15 +103,19 @@ export async function POST(request) {
     const hasJobDescription = jobDescription && typeof jobDescription === 'string' && jobDescription.trim()
     const jobDescriptionText = hasJobDescription ? jobDescription.trim() : ''
 
-    const modelsToTry = ['gpt-4', 'gpt-4-turbo-preview', 'gpt-3.5-turbo'];
+    const modelsToTry = [
+      { name: 'gpt-4', maxTokens: 4096 },
+      { name: 'gpt-4-turbo-preview', maxTokens: 4096 },
+      { name: 'gpt-3.5-turbo', maxTokens: 4096 }
+    ];
     let completion;
     let lastError;
 
-    for (const model of modelsToTry) {
+    for (const modelConfig of modelsToTry) {
       try {
-        console.log(`Trying model: ${model}`);
+        console.log(`Trying model: ${modelConfig.name} with max_tokens: ${modelConfig.maxTokens}`);
         completion = await openai.chat.completions.create({
-          model: model,
+          model: modelConfig.name,
           messages: [
             {
               role: "system",
@@ -188,17 +204,17 @@ QUALITY CHECK: Count the total years of experience and make sure your resume inc
             }
           ],
           temperature: 0.2, // Lower temperature for better accuracy
-          max_tokens: 8192,
+          max_tokens: modelConfig.maxTokens,
         });
-        
-        console.log(`Successfully used model: ${model}`);
+
+        console.log(`Successfully used model: ${modelConfig.name}`);
         break;
-        
+
       } catch (error) {
-        console.log(`Model ${model} failed:`, error.message);
+        console.log(`Model ${modelConfig.name} failed:`, error.message);
         lastError = error;
-        
-        if (model === modelsToTry[modelsToTry.length - 1]) {
+
+        if (modelConfig === modelsToTry[modelsToTry.length - 1]) {
           throw lastError;
         }
       }
@@ -215,31 +231,84 @@ QUALITY CHECK: Count the total years of experience and make sure your resume inc
 
     console.log('Successfully generated complete resume, length:', generatedResume.length)
 
-    return NextResponse.json({ 
-      resume: generatedResume,
-      originalTextLength: resumeText.length,
-      generatedLength: generatedResume.length
-    })
+    // Save to database
+    try {
+      await connectDB()
+
+      const newResume = await Resume.create({
+        userId: session.user.id,
+        title: `Resume - ${new Date().toLocaleDateString()}`,
+        content: generatedResume,
+        sourceText: resumeText,
+        jobDescription: jobDescriptionText || '',
+        status: 'COMPLETED',
+        metadata: {
+          createdAt: new Date(),
+        },
+      })
+
+      console.log('Resume saved to database with ID:', newResume._id)
+
+      return NextResponse.json({
+        resume: generatedResume,
+        resumeId: newResume._id.toString(),
+        originalTextLength: resumeText.length,
+        generatedLength: generatedResume.length
+      })
+    } catch (dbError) {
+      console.error('Database save error:', dbError)
+      // Still return the resume even if DB save fails
+      return NextResponse.json({
+        resume: generatedResume,
+        originalTextLength: resumeText.length,
+        generatedLength: generatedResume.length,
+        warning: 'Resume generated but not saved to database'
+      })
+    }
 
   } catch (error) {
     console.error('Error generating resume:', error)
-    
+
+    // Handle specific OpenAI errors
     if (error.code === 'insufficient_quota') {
       return NextResponse.json(
-        { error: 'OpenAI API quota exceeded. Please check your billing.' },
+        { error: 'OpenAI API quota exceeded. Please add billing details or upgrade your plan at platform.openai.com.' },
         { status: 402 }
       )
     }
-    
+
     if (error.code === 'invalid_api_key') {
       return NextResponse.json(
-        { error: 'Invalid OpenAI API key' },
+        { error: 'Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.' },
         { status: 401 }
       )
     }
 
+    if (error.status === 429) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait a moment and try again.' },
+        { status: 429 }
+      )
+    }
+
+    if (error.message?.includes('max_tokens')) {
+      return NextResponse.json(
+        { error: 'Token limit issue. Please try with a shorter resume or contact support.' },
+        { status: 400 }
+      )
+    }
+
+    // Handle file processing errors
+    if (error.message?.includes('extract text')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      )
+    }
+
+    // Generic error
     return NextResponse.json(
-      { error: `Failed to generate resume: ${error.message}` },
+      { error: `Failed to generate resume: ${error.message || 'Unknown error occurred'}` },
       { status: 500 }
     )
   }

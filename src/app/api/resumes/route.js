@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import dbConnect from '@/lib/db/connection'
+import { auth } from '@/lib/auth'
+import connectDB from '@/lib/db/mongodb'
 import Resume from '@/lib/db/models/Resume'
 
 // GET all user's resumes
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -16,7 +15,7 @@ export async function GET(request) {
       )
     }
 
-    await dbConnect()
+    await connectDB()
 
     const resumes = await Resume.find({
       userId: session.user.id,
@@ -47,7 +46,7 @@ export async function GET(request) {
 // POST create a new resume
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -65,7 +64,7 @@ export async function POST(request) {
       )
     }
 
-    await dbConnect()
+    await connectDB()
 
     const resume = new Resume({
       userId: session.user.id,

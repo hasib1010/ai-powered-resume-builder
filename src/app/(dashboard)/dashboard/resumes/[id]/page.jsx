@@ -11,9 +11,13 @@ import {
   Loader2,
   FileText,
   Copy,
-  Check
+  Check,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 
 export default function ResumeViewPage() {
   const params = useParams()
@@ -25,6 +29,7 @@ export default function ResumeViewPage() {
   const [downloadType, setDownloadType] = useState('')
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [zoom, setZoom] = useState(100)
 
   useEffect(() => {
     if (params.id) {
@@ -125,6 +130,14 @@ export default function ResumeViewPage() {
     }
   }
 
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 10, 150))
+  }
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 10, 50))
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -152,9 +165,9 @@ export default function ResumeViewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/resumes"
@@ -163,7 +176,7 @@ export default function ResumeViewPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{resume.title}</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{resume.title}</h1>
             <p className="text-gray-600 mt-1">
               Last updated: {new Date(resume.updatedAt).toLocaleDateString('en-US', {
                 month: 'long',
@@ -174,7 +187,7 @@ export default function ResumeViewPage() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleCopy}
             className="inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
@@ -242,10 +255,321 @@ export default function ResumeViewPage() {
         </div>
       </div>
 
-      {/* Resume Content */}
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
-        <div className="prose prose-slate max-w-none">
-          <ReactMarkdown>{resume.content}</ReactMarkdown>
+      {/* PDF Preview Container */}
+      <div className="bg-[#525659] rounded-lg p-4 md:p-8 min-h-[600px]">
+        {/* Toolbar */}
+        <div className="flex items-center justify-center mb-4 gap-2">
+          <button
+            onClick={handleZoomOut}
+            className="p-2 text-gray-300 hover:text-white hover:bg-gray-600 rounded transition"
+            title="Zoom Out"
+          >
+            <ZoomOut className="w-5 h-5" />
+          </button>
+          <span className="text-white text-sm min-w-[60px] text-center bg-gray-700 px-3 py-1 rounded">
+            {zoom}%
+          </span>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 text-gray-300 hover:text-white hover:bg-gray-600 rounded transition"
+            title="Zoom In"
+          >
+            <ZoomIn className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* PDF Page Container */}
+        <div className="flex justify-center overflow-auto pb-4">
+          <div
+            className="bg-white shadow-2xl origin-top"
+            style={{
+              width: '612px', // 8.5 inches at 72 DPI
+              minHeight: '792px', // 11 inches at 72 DPI
+              transform: `scale(${zoom / 100})`,
+              transformOrigin: 'top center',
+            }}
+          >
+            {/* Resume Content with PDF-like styling */}
+            <div
+              className="p-12"
+              style={{
+                fontFamily: 'Arial, Helvetica, sans-serif',
+              }}
+            >
+              <style jsx>{`
+                .resume-content h1 {
+                  font-size: 22px;
+                  font-weight: bold;
+                  text-align: center;
+                  margin-bottom: 4px;
+                  color: #000;
+                }
+                .resume-content h1 + p {
+                  text-align: center;
+                  font-size: 11px;
+                  color: #333;
+                  margin-bottom: 16px;
+                }
+                .resume-content h2 {
+                  font-size: 12px;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                  border-bottom: 1.5px solid #000;
+                  margin-top: 16px;
+                  margin-bottom: 8px;
+                  padding-bottom: 2px;
+                  color: #000;
+                  letter-spacing: 0.3px;
+                }
+                .resume-content h3 {
+                  font-size: 11px;
+                  font-weight: bold;
+                  margin-top: 10px;
+                  margin-bottom: 0px;
+                  color: #000;
+                  display: inline;
+                }
+                .resume-content h4 {
+                  font-size: 11px;
+                  font-style: italic;
+                  margin-top: 0px;
+                  margin-bottom: 4px;
+                  color: #000;
+                }
+                .resume-content p {
+                  font-size: 11px;
+                  line-height: 1.5;
+                  margin-bottom: 6px;
+                  color: #000;
+                  text-align: justify;
+                }
+                .resume-content ul {
+                  margin-left: 16px;
+                  margin-bottom: 6px;
+                  padding-left: 0;
+                }
+                .resume-content li {
+                  font-size: 11px;
+                  line-height: 1.5;
+                  margin-bottom: 2px;
+                  color: #000;
+                  list-style-type: disc;
+                }
+                .resume-content a {
+                  color: #0066cc;
+                  text-decoration: none;
+                }
+                .resume-content a:hover {
+                  text-decoration: underline;
+                }
+                .resume-content strong {
+                  font-weight: bold;
+                }
+                .resume-content em {
+                  font-style: italic;
+                }
+                .resume-content hr {
+                  border: none;
+                  border-top: 1px solid #ccc;
+                  margin: 12px 0;
+                }
+              `}</style>
+
+              <div className="resume-content">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkBreaks]}
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 style={{
+                        fontSize: '22px',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        marginBottom: '4px',
+                        color: '#000',
+                      }}>
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 style={{
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        borderBottom: '1.5px solid #000',
+                        marginTop: '16px',
+                        marginBottom: '8px',
+                        paddingBottom: '2px',
+                        color: '#000',
+                        letterSpacing: '0.3px',
+                      }}>
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children }) => {
+                      // Check if children contains date pattern (for job title + date)
+                      const text = String(children)
+                      const datePattern = /(.+?)\s+((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\s*[–-]\s*(?:Present|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}))/i
+                      const match = text.match(datePattern)
+
+                      if (match) {
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'baseline',
+                            marginTop: '10px',
+                            marginBottom: '0px',
+                          }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              color: '#000',
+                            }}>
+                              {match[1].trim()}
+                            </span>
+                            <span style={{
+                              fontSize: '11px',
+                              color: '#000',
+                            }}>
+                              {match[2].trim()}
+                            </span>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <h3 style={{
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          marginTop: '10px',
+                          marginBottom: '0px',
+                          color: '#000',
+                        }}>
+                          {children}
+                        </h3>
+                      )
+                    },
+                    h4: ({ children }) => (
+                      <h4 style={{
+                        fontSize: '11px',
+                        fontStyle: 'italic',
+                        marginTop: '0px',
+                        marginBottom: '4px',
+                        color: '#000',
+                        fontWeight: 'normal',
+                      }}>
+                        {children}
+                      </h4>
+                    ),
+                    p: ({ children, node }) => {
+                      // Check if this is the contact info line (right after name)
+                      const text = String(children)
+                      const isContactInfo = text.includes('@') || text.includes('linkedin') || text.includes('|')
+
+                      if (isContactInfo) {
+                        return (
+                          <p style={{
+                            fontSize: '10px',
+                            textAlign: 'center',
+                            color: '#333',
+                            marginBottom: '12px',
+                            lineHeight: '1.6',
+                          }}>
+                            {children}
+                          </p>
+                        )
+                      }
+
+                      return (
+                        <p style={{
+                          fontSize: '11px',
+                          lineHeight: '1.5',
+                          marginBottom: '6px',
+                          color: '#000',
+                          textAlign: 'justify',
+                        }}>
+                          {children}
+                        </p>
+                      )
+                    },
+                    ul: ({ children }) => (
+                      <ul style={{
+                        marginLeft: '16px',
+                        marginBottom: '6px',
+                        paddingLeft: '0',
+                        listStyleType: 'disc',
+                      }}>
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol style={{
+                        marginLeft: '16px',
+                        marginBottom: '6px',
+                        paddingLeft: '0',
+                        listStyleType: 'decimal',
+                      }}>
+                        {children}
+                      </ol>
+                    ),
+                    li: ({ children }) => (
+                      <li style={{
+                        fontSize: '11px',
+                        lineHeight: '1.5',
+                        marginBottom: '2px',
+                        color: '#000',
+                      }}>
+                        {children}
+                      </li>
+                    ),
+                    strong: ({ children }) => (
+                      <strong style={{ fontWeight: 'bold', color: '#000' }}>
+                        {children}
+                      </strong>
+                    ),
+                    em: ({ children }) => (
+                      <em style={{ fontStyle: 'italic' }}>
+                        {children}
+                      </em>
+                    ),
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: '#0066cc',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {children}
+                      </a>
+                    ),
+                    hr: () => (
+                      <hr style={{
+                        border: 'none',
+                        borderTop: '1px solid #ccc',
+                        margin: '12px 0',
+                      }} />
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote style={{
+                        borderLeft: '3px solid #ccc',
+                        paddingLeft: '10px',
+                        margin: '10px 0',
+                        fontStyle: 'italic',
+                        color: '#555',
+                      }}>
+                        {children}
+                      </blockquote>
+                    ),
+                  }}
+                >
+                  {resume.content}
+                </ReactMarkdown>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

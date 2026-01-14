@@ -1,14 +1,14 @@
+// src/app/api/user/stats/route.js
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import dbConnect from '@/lib/db/connection'
+import { auth } from '@/lib/auth'
+import connectDB from '@/lib/db/mongodb'
 import Resume from '@/lib/db/models/Resume'
 import Usage from '@/lib/db/models/Usage'
 import User from '@/lib/db/models/User'
 
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function GET(request) {
       )
     }
 
-    await dbConnect()
+    await connectDB()
 
     // Get user for subscription tier
     const user = await User.findById(session.user.id)

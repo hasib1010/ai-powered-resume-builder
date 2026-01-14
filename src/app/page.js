@@ -2,10 +2,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle, FileText, Zap, Shield, Star } from 'lucide-react'
+import { ArrowRight, CheckCircle, FileText, Zap, Shield, Star, User, LogOut } from 'lucide-react'
 
 export default function LandingPage() {
+  const { data: session, status } = useSession()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Navigation */}
@@ -18,7 +22,7 @@ export default function LandingPage() {
                 ResumeAI Pro
               </span>
             </div>
-            
+
             <div className="hidden md:flex items-center space-x-8">
               <Link href="/features" className="text-gray-600 hover:text-gray-900 transition">
                 Features
@@ -30,20 +34,93 @@ export default function LandingPage() {
                 About
               </Link>
             </div>
-            
+
             <div className="flex items-center space-x-4">
-              <Link 
-                href="/login"
-                className="text-gray-600 hover:text-gray-900 transition"
-              >
-                Sign In
-              </Link>
-              <Link 
-                href="/signup"
-                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition font-medium shadow-lg shadow-blue-500/30"
-              >
-                Get Started
-              </Link>
+              {status === 'loading' ? (
+                <div className="w-20 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              ) : session ? (
+                // Logged in state
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition"
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      {session.user?.image ? (
+                        <img
+                          src={session.user.image}
+                          alt={session.user.name || 'User'}
+                          className="w-8 h-8 rounded-full"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-white" />
+                      )}
+                    </div>
+                    <span className="hidden sm:inline font-medium">
+                      {session.user?.name || session.user?.email || 'Account'}
+                    </span>
+                  </button>
+
+                  {userMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setUserMenuOpen(false)}
+                      ></div>
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                        <Link
+                          href="/dashboard"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          Dashboard
+                        </Link>
+                        <Link
+                          href="/dashboard/resumes"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          My Resumes
+                        </Link>
+                        <Link
+                          href="/dashboard/settings"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          Settings
+                        </Link>
+                        <hr className="my-2" />
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false)
+                            signOut({ callbackUrl: '/' })
+                          }}
+                          className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 transition flex items-center space-x-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                // Logged out state
+                <>
+                  <Link
+                    href="/login"
+                    className="text-gray-600 hover:text-gray-900 transition"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition font-medium shadow-lg shadow-blue-500/30"
+                  >
+                    Get Started
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -57,36 +134,36 @@ export default function LandingPage() {
               <Zap className="w-4 h-4" />
               <span>AI-Powered Resume Builder</span>
             </div>
-            
+
             <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
               Create Professional
               <span className="block bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 Resumes in Minutes
               </span>
             </h1>
-            
+
             <p className="text-xl text-gray-600 mb-10 leading-relaxed max-w-2xl mx-auto">
-              Transform your career story into a compelling, ATS-optimized resume with our 
+              Transform your career story into a compelling, ATS-optimized resume with our
               AI-powered platform. Get hired faster with professional templates and intelligent suggestions.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link 
+              <Link
                 href="/signup"
                 className="group bg-blue-600 text-white px-8 py-4 rounded-xl hover:bg-blue-700 transition font-semibold text-lg shadow-2xl shadow-blue-500/40 flex items-center space-x-2"
               >
                 <span>Start Free Trial</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition" />
               </Link>
-              
-              <Link 
+
+              <Link
                 href="/demo"
                 className="bg-white text-gray-900 px-8 py-4 rounded-xl hover:bg-gray-50 transition font-semibold text-lg border-2 border-gray-200 shadow-lg"
               >
                 Watch Demo
               </Link>
             </div>
-            
+
             <div className="mt-12 flex items-center justify-center space-x-8 text-sm text-gray-600">
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-5 h-5 text-green-500" />
@@ -98,7 +175,7 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-          
+
           {/* Hero Image/Screenshot */}
           <div className="mt-20 relative">
             <div className="absolute inset-0 bg-gradient-to-t from-slate-50 to-transparent z-10"></div>
@@ -125,7 +202,7 @@ export default function LandingPage() {
               Powerful features designed to help you create winning resumes that get noticed by recruiters
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
@@ -159,7 +236,7 @@ export default function LandingPage() {
                 description: "Your data is encrypted and secure. We never share your information with third parties."
               }
             ].map((feature, index) => (
-              <div 
+              <div
                 key={index}
                 className="bg-gradient-to-br from-slate-50 to-blue-50 p-8 rounded-2xl border border-gray-100 hover:shadow-xl transition"
               >
@@ -204,7 +281,7 @@ export default function LandingPage() {
               Choose the plan that's right for you
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {/* Free Plan */}
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8">
@@ -231,7 +308,7 @@ export default function LandingPage() {
                   <span>Save up to 5 resumes</span>
                 </li>
               </ul>
-              <Link 
+              <Link
                 href="/signup"
                 className="block w-full text-center bg-gray-100 text-gray-900 py-3 rounded-xl hover:bg-gray-200 transition font-semibold"
               >
@@ -271,7 +348,7 @@ export default function LandingPage() {
                   <span>Priority support</span>
                 </li>
               </ul>
-              <Link 
+              <Link
                 href="/signup?plan=pro"
                 className="block w-full text-center bg-white text-blue-600 py-3 rounded-xl hover:bg-blue-50 transition font-semibold"
               >
@@ -308,7 +385,7 @@ export default function LandingPage() {
                   <span>Dedicated support</span>
                 </li>
               </ul>
-              <Link 
+              <Link
                 href="/signup?plan=business"
                 className="block w-full text-center bg-gray-100 text-gray-900 py-3 rounded-xl hover:bg-gray-200 transition font-semibold"
               >
@@ -328,7 +405,7 @@ export default function LandingPage() {
           <p className="text-xl text-blue-100 mb-10">
             Join thousands of professionals who have landed their dream jobs with ResumeAI Pro
           </p>
-          <Link 
+          <Link
             href="/signup"
             className="inline-flex items-center space-x-2 bg-white text-blue-600 px-8 py-4 rounded-xl hover:bg-blue-50 transition font-semibold text-lg shadow-xl"
           >
@@ -351,7 +428,7 @@ export default function LandingPage() {
                 Create professional resumes with AI-powered technology
               </p>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-gray-600 text-sm">
@@ -360,7 +437,7 @@ export default function LandingPage() {
                 <li><Link href="/templates">Templates</Link></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-600 text-sm">
@@ -369,7 +446,7 @@ export default function LandingPage() {
                 <li><Link href="/contact">Contact</Link></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Legal</h4>
               <ul className="space-y-2 text-gray-600 text-sm">
@@ -379,7 +456,7 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-          
+
           <div className="border-t mt-8 pt-8 text-center text-gray-600 text-sm">
             <p>© 2025 ResumeAI Pro. All rights reserved.</p>
           </div>

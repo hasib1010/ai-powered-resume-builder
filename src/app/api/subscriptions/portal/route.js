@@ -1,8 +1,7 @@
 // app/api/subscriptions/portal/route.js (MongoDB Version)
 
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { auth } from '@/lib/auth'
 import { createPortalSession } from '@/lib/stripe/stripe-utils'
 import connectDB from '@/lib/db/mongodb'
 import User from '@/lib/db/models/User'
@@ -10,8 +9,8 @@ import User from '@/lib/db/models/User'
 export async function POST(request) {
   try {
     // Get user session
-    const session = await getServerSession(authOptions)
-    
+    const session = await auth()
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -24,7 +23,7 @@ export async function POST(request) {
 
     // Get user from database
     const user = await User.findById(session.user.id)
-    
+
     if (!user || !user.stripeCustomerId) {
       return NextResponse.json(
         { error: 'No subscription found' },

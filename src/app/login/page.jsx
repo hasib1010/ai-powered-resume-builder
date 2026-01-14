@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react'
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session, status } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -16,6 +17,13 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+
+  // Redirect if already logged in
+  if (status === 'authenticated' && session?.user) {
+    const redirectUrl = session.user.role === 'ADMIN' ? '/admin' : callbackUrl
+    router.push(redirectUrl)
+    return null
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -27,18 +35,23 @@ export default function LoginPage() {
         redirect: false,
         email,
         password,
-        callbackUrl,
       })
 
       if (result?.error) {
         setError('Invalid email or password')
+        setIsLoading(false)
       } else if (result?.ok) {
-        router.push(callbackUrl)
+        // Fetch session to get user role
+        const sessionRes = await fetch('/api/auth/session')
+        const sessionData = await sessionRes.json()
+        
+        // Redirect based on role
+        const redirectUrl = sessionData?.user?.role === 'ADMIN' ? '/admin' : callbackUrl
+        router.push(redirectUrl)
         router.refresh()
       }
     } catch (err) {
       setError('An error occurred. Please try again.')
-    } finally {
       setIsLoading(false)
     }
   }
@@ -47,11 +60,21 @@ export default function LoginPage() {
     setError('')
     setIsGoogleLoading(true)
     try {
+      // For OAuth, we let the middleware handle the redirect after callback
       await signIn('google', { callbackUrl })
     } catch (err) {
       setError('An error occurred with Google sign in')
       setIsGoogleLoading(false)
     }
+  }
+
+  // Show loading while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+      </div>
+    )
   }
 
   return (

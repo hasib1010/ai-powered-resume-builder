@@ -1,8 +1,7 @@
 // app/api/subscriptions/checkout/route.js 
 
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { auth } from '@/lib/auth'
 import { createCheckoutSession, createCustomer } from '@/lib/stripe/stripe-utils'
 import { STRIPE_PLANS } from '@/lib/stripe/config'
 import connectDB from '@/lib/db/mongodb'
@@ -11,8 +10,8 @@ import User from '@/lib/db/models/User'
 export async function POST(request) {
   try {
     // Get user session
-    const session = await getServerSession(authOptions)
-    
+    const session = await auth()
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -39,7 +38,7 @@ export async function POST(request) {
 
     // Get user from database
     const user = await User.findById(userId)
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -48,7 +47,7 @@ export async function POST(request) {
     }
 
     let stripeCustomerId = user.stripeCustomerId
-    
+
     // Create Stripe customer if doesn't exist
     if (!stripeCustomerId) {
       const customer = await createCustomer({
@@ -56,9 +55,9 @@ export async function POST(request) {
         name: user.name || session.user.name,
         userId: userId,
       })
-      
+
       stripeCustomerId = customer.id
-      
+
       // Update user with Stripe customer ID
       user.stripeCustomerId = stripeCustomerId
       await user.save()
@@ -73,9 +72,9 @@ export async function POST(request) {
       customerEmail: userEmail,
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       sessionId: checkoutSession.id,
-      url: checkoutSession.url 
+      url: checkoutSession.url
     })
 
   } catch (error) {

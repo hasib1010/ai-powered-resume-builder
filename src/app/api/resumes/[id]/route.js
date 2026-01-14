@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import dbConnect from '@/lib/db/connection'
+import { auth } from '@/lib/auth'
+import connectDB from '@/lib/db/mongodb'
 import Resume from '@/lib/db/models/Resume'
 
 // GET a specific resume
 export async function GET(request, { params }) {
   try {
-    const session = await getServerSession(authOptions)
+    // ✅ Await params in Next.js 15
+    const { id } = await params
+
+    const session = await auth()
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -16,10 +18,10 @@ export async function GET(request, { params }) {
       )
     }
 
-    await dbConnect()
+    await connectDB()
 
     const resume = await Resume.findOne({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
       isDeleted: false,
     })
@@ -53,7 +55,10 @@ export async function GET(request, { params }) {
 // PUT update a resume
 export async function PUT(request, { params }) {
   try {
-    const session = await getServerSession(authOptions)
+    // ✅ Await params in Next.js 15
+    const { id } = await params
+
+    const session = await auth()
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -64,10 +69,10 @@ export async function PUT(request, { params }) {
 
     const { title, content, metadata } = await request.json()
 
-    await dbConnect()
+    await connectDB()
 
     const resume = await Resume.findOne({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
       isDeleted: false,
     })
@@ -113,7 +118,10 @@ export async function PUT(request, { params }) {
 // DELETE a resume (soft delete)
 export async function DELETE(request, { params }) {
   try {
-    const session = await getServerSession(authOptions)
+    // ✅ Await params in Next.js 15
+    const { id } = await params
+
+    const session = await auth()
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -122,10 +130,10 @@ export async function DELETE(request, { params }) {
       )
     }
 
-    await dbConnect()
+    await connectDB()
 
     const resume = await Resume.findOne({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
       isDeleted: false,
     })

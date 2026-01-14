@@ -14,12 +14,11 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    index: true,
+    // ❌ Remove: index: true (duplicate - unique already creates index)
   },
   password: {
     type: String,
-    // Password is optional because users can sign in with OAuth
-    select: false, // Don't include password in queries by default
+    select: false,
   },
   image: {
     type: String,
@@ -32,10 +31,17 @@ const userSchema = new mongoose.Schema({
     enum: ['FREE', 'PRO', 'BUSINESS'],
     default: 'FREE',
   },
+  role: {
+    type: String,
+    enum: ['USER', 'ADMIN'],
+    default: 'USER',
+    required: true,
+  },
   stripeCustomerId: {
     type: String,
     unique: true,
-    sparse: true, // Allows multiple null values
+    sparse: true,
+    // ❌ Remove separate index - unique already creates one
   },
   isActive: {
     type: Boolean,
@@ -48,19 +54,15 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
 })
 
-// Indexes
-userSchema.index({ email: 1 })
-userSchema.index({ stripeCustomerId: 1 })
+// ✅ Only keep indexes that aren't already created by unique: true
 userSchema.index({ subscriptionTier: 1 })
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next()
   }
 
-  // Skip if password is not set (OAuth users)
   if (!this.password) {
     return next()
   }
@@ -74,10 +76,8 @@ userSchema.pre('save', async function(next) {
   }
 })
 
-// Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   try {
-    // If no password is set (OAuth user), return false
     if (!this.password) {
       return false
     }
@@ -87,19 +87,16 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   }
 }
 
-// Method to update last login
-userSchema.methods.updateLastLogin = function() {
+userSchema.methods.updateLastLogin = function () {
   this.lastLogin = new Date()
   return this.save()
 }
 
-// Static method to find by email
-userSchema.statics.findByEmail = function(email) {
+userSchema.statics.findByEmail = function (email) {
   return this.findOne({ email: email.toLowerCase() })
 }
 
-// Virtual for user's public profile
-userSchema.virtual('profile').get(function() {
+userSchema.virtual('profile').get(function () {
   return {
     id: this._id,
     name: this.name,
@@ -109,10 +106,9 @@ userSchema.virtual('profile').get(function() {
   }
 })
 
-// Ensure virtual fields are serialized
 userSchema.set('toJSON', {
   virtuals: true,
-  transform: function(doc, ret) {
+  transform: function (doc, ret) {
     delete ret.password
     return ret
   }

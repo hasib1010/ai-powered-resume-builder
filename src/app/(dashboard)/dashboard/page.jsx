@@ -2,6 +2,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   FileText,
@@ -17,14 +19,20 @@ import {
 } from 'lucide-react'
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [stats, setStats] = useState(null)
   const [recentResumes, setRecentResumes] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (status === 'unauthenticated') {
+      router.push('/login')
+    } else if (status === 'authenticated') {
+      fetchDashboardData()
+    }
+  }, [status, router])
 
   const fetchDashboardData = async () => {
     try {
@@ -72,7 +80,7 @@ export default function DashboardPage() {
     return text + (content.length > 150 ? '...' : '')
   }
 
-  if (isLoading) {
+  if (isLoading || status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -99,7 +107,7 @@ export default function DashboardPage() {
   }
 
   const isLimitReached = stats.generationsLimit !== -1 &&
-                         stats.monthlyGenerations >= stats.generationsLimit
+    stats.monthlyGenerations >= stats.generationsLimit
 
   return (
     <div className="space-y-8">
@@ -109,7 +117,7 @@ export default function DashboardPage() {
         <p className="text-blue-100 mb-6">
           Ready to create your next professional resume?
         </p>
-        <Link 
+        <Link
           href="/dashboard/resumes/new"
           className={`
             inline-flex items-center space-x-2 bg-white text-blue-600 px-6 py-3 rounded-xl 
@@ -127,11 +135,11 @@ export default function DashboardPage() {
           <span>Create New Resume</span>
           <ArrowRight className="w-5 h-5" />
         </Link>
-        
+
         {isLimitReached && (
           <div className="mt-4 bg-white/20 rounded-lg p-4">
             <p className="text-sm">
-              You've reached your monthly limit. 
+              You've reached your monthly limit.
               <Link href="/dashboard/billing" className="underline font-semibold ml-1">
                 Upgrade to Pro
               </Link> for unlimited resume generations!
@@ -212,7 +220,7 @@ export default function DashboardPage() {
           <h3 className="text-2xl font-bold text-gray-900">{stats.tier}</h3>
           <p className="text-gray-600 text-sm mb-3">Current Plan</p>
           {stats.tier === 'FREE' && (
-            <Link 
+            <Link
               href="/dashboard/billing"
               className="text-purple-600 hover:text-purple-700 text-sm font-semibold inline-flex items-center space-x-1"
             >
@@ -230,7 +238,7 @@ export default function DashboardPage() {
             <h3 className="text-xl font-bold text-gray-900">Recent Resumes</h3>
             <p className="text-gray-600 text-sm mt-1">Your latest resume projects</p>
           </div>
-          <Link 
+          <Link
             href="/dashboard/resumes"
             className="text-blue-600 hover:text-blue-700 font-semibold text-sm inline-flex items-center space-x-1"
           >
@@ -244,7 +252,7 @@ export default function DashboardPage() {
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h4 className="text-lg font-semibold text-gray-900 mb-2">No resumes yet</h4>
             <p className="text-gray-600 mb-6">Create your first professional resume to get started</p>
-            <Link 
+            <Link
               href="/dashboard/resumes/new"
               className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition font-semibold"
             >
@@ -315,10 +323,10 @@ export default function DashboardPage() {
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-2">Pro Tip</h4>
             <p className="text-gray-700 mb-4">
-              Tailor your resume for each job application by including specific keywords from the job description. 
+              Tailor your resume for each job application by including specific keywords from the job description.
               Our AI can help optimize your resume for specific roles!
             </p>
-            <Link 
+            <Link
               href="/dashboard/resumes/new"
               className="text-blue-600 hover:text-blue-700 font-semibold text-sm inline-flex items-center space-x-1"
             >

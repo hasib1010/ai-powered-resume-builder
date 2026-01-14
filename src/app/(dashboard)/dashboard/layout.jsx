@@ -2,21 +2,24 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Settings, 
-  CreditCard, 
-  LogOut, 
-  Menu, 
+import {
+  LayoutDashboard,
+  FileText,
+  Settings,
+  CreditCard,
+  LogOut,
+  Menu,
   X,
   Sparkles,
   User
 } from 'lucide-react'
 
+
 export default function DashboardLayout({ children }) {
+  const { data: session } = useSession()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
@@ -29,11 +32,15 @@ export default function DashboardLayout({ children }) {
 
   const isActive = (href) => pathname === href
 
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/' })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-gray-900/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -54,7 +61,7 @@ export default function DashboardLayout({ children }) {
                 ResumeAI
               </span>
             </Link>
-            <button 
+            <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
             >
@@ -89,15 +96,30 @@ export default function DashboardLayout({ children }) {
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 cursor-pointer">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
+                {session?.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name || 'User'}
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">John Doe</p>
-                <p className="text-xs text-gray-500 truncate">Pro Plan</p>
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {session?.user?.name || session?.user?.email || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {session?.user?.subscriptionTier || 'FREE'} Plan
+                </p>
               </div>
             </div>
-            
-            <button className="w-full flex items-center space-x-3 px-4 py-3 mt-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center space-x-3 px-4 py-3 mt-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            >
               <LogOut className="w-5 h-5" />
               <span className="font-medium">Sign Out</span>
             </button>
@@ -115,19 +137,21 @@ export default function DashboardLayout({ children }) {
           >
             <Menu className="w-6 h-6" />
           </button>
-          
+
           <div className="flex-1 lg:flex-none">
             <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           </div>
-          
+
           {/* Upgrade banner for free users */}
-          <Link 
-            href="/dashboard/billing"
-            className="hidden sm:flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-shadow"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="font-medium">Upgrade to Pro</span>
-          </Link>
+          {session?.user?.subscriptionTier === 'FREE' && (
+            <Link
+              href="/dashboard/billing"
+              className="hidden sm:flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-shadow"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="font-medium">Upgrade to Pro</span>
+            </Link>
+          )}
         </header>
 
         {/* Page content */}
