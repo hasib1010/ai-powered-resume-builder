@@ -91,15 +91,19 @@ export async function POST(request) {
     const hasJobDescription = jobDescription && typeof jobDescription === 'string' && jobDescription.trim()
     const jobDescriptionText = hasJobDescription ? jobDescription.trim() : ''
 
-    const modelsToTry = ['gpt-4', 'gpt-4-turbo-preview', 'gpt-3.5-turbo'];
+    const modelsToTry = [
+      { name: 'gpt-4', maxTokens: 4096 },
+      { name: 'gpt-4-turbo-preview', maxTokens: 4096 },
+      { name: 'gpt-3.5-turbo', maxTokens: 4096 }
+    ];
     let completion;
     let lastError;
 
-    for (const model of modelsToTry) {
+    for (const modelConfig of modelsToTry) {
       try {
-        console.log(`Trying model: ${model}`);
+        console.log(`Trying model: ${modelConfig.name} with max_tokens: ${modelConfig.maxTokens}`);
         completion = await openai.chat.completions.create({
-          model: model,
+          model: modelConfig.name,
           messages: [
             {
               role: "system",
@@ -188,17 +192,17 @@ QUALITY CHECK: Count the total years of experience and make sure your resume inc
             }
           ],
           temperature: 0.2, // Lower temperature for better accuracy
-          max_tokens: 8192,
+          max_tokens: modelConfig.maxTokens,
         });
-        
-        console.log(`Successfully used model: ${model}`);
+
+        console.log(`Successfully used model: ${modelConfig.name}`);
         break;
-        
+
       } catch (error) {
-        console.log(`Model ${model} failed:`, error.message);
+        console.log(`Model ${modelConfig.name} failed:`, error.message);
         lastError = error;
-        
-        if (model === modelsToTry[modelsToTry.length - 1]) {
+
+        if (modelConfig === modelsToTry[modelsToTry.length - 1]) {
           throw lastError;
         }
       }
@@ -223,23 +227,47 @@ QUALITY CHECK: Count the total years of experience and make sure your resume inc
 
   } catch (error) {
     console.error('Error generating resume:', error)
-    
+
+    // Handle specific OpenAI errors
     if (error.code === 'insufficient_quota') {
       return NextResponse.json(
-        { error: 'OpenAI API quota exceeded. Please check your billing.' },
+        { error: 'OpenAI API quota exceeded. Please add billing details or upgrade your plan at platform.openai.com.' },
         { status: 402 }
       )
     }
-    
+
     if (error.code === 'invalid_api_key') {
       return NextResponse.json(
-        { error: 'Invalid OpenAI API key' },
+        { error: 'Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.' },
         { status: 401 }
       )
     }
 
+    if (error.status === 429) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait a moment and try again.' },
+        { status: 429 }
+      )
+    }
+
+    if (error.message?.includes('max_tokens')) {
+      return NextResponse.json(
+        { error: 'Token limit issue. Please try with a shorter resume or contact support.' },
+        { status: 400 }
+      )
+    }
+
+    // Handle file processing errors
+    if (error.message?.includes('extract text')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      )
+    }
+
+    // Generic error
     return NextResponse.json(
-      { error: `Failed to generate resume: ${error.message}` },
+      { error: `Failed to generate resume: ${error.message || 'Unknown error occurred'}` },
       { status: 500 }
     )
   }
