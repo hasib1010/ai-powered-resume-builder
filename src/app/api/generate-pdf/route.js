@@ -1,7 +1,11 @@
-// Save as: /api/generate-pdf/route.js
+// app/api/generate-pdf/route.js
+// Works both locally (Windows/Mac) and on Vercel serverless
 
 import { NextResponse } from 'next/server'
-import puppeteer from 'puppeteer'
+
+// Vercel serverless function config
+export const maxDuration = 30
+export const dynamic = 'force-dynamic'
 
 export async function POST(request) {
   let browser = null
@@ -44,17 +48,14 @@ export async function POST(request) {
     if (resumeData.experience && resumeData.experience.length > 0) {
       htmlContent += `<div class="section-header">PROFESSIONAL EXPERIENCE</div>`
       
-      resumeData.experience.forEach((job, index) => {
-        // Job title and dates (justified)
+      resumeData.experience.forEach((job) => {
         htmlContent += `<div class="job-header">
           <span class="job-title">${job.title}</span>
           <span class="job-dates">${job.dates}</span>
         </div>`
         
-        // Company name (italic)
         htmlContent += `<div class="company-name">${job.company}</div>`
         
-        // Bullet points
         if (job.bullets && job.bullets.length > 0) {
           htmlContent += '<ul class="job-bullets">'
           job.bullets.forEach(bullet => {
@@ -217,23 +218,42 @@ export async function POST(request) {
 
     console.log('Launching browser...')
     
-    // Launch browser with minimal configuration
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run'
-      ]
-    })
+    // Detect environment and use appropriate browser
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME
+    
+    if (isVercel) {
+      // Production: Use puppeteer-core with @sparticuz/chromium
+      const puppeteer = await import('puppeteer-core')
+      const chromium = await import('@sparticuz/chromium')
+      
+      const executablePath = await chromium.default.executablePath()
+      
+      browser = await puppeteer.default.launch({
+        args: chromium.default.args,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath,
+        headless: chromium.default.headless,
+      })
+    } else {
+      // Local development: Use regular puppeteer
+      const puppeteer = await import('puppeteer')
+      
+      browser = await puppeteer.default.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+        ]
+      })
+    }
     
     console.log('Creating new page...')
     const page = await browser.newPage()
     
     console.log('Setting page content...')
-    await page.setContent(html)
+    await page.setContent(html, { waitUntil: 'networkidle0' })
     
     console.log('Generating PDF...')
     const pdfBuffer = await page.pdf({
@@ -249,11 +269,9 @@ export async function POST(request) {
 
     console.log('PDF generated successfully, size:', pdfBuffer.length)
 
-    // Close browser
     await browser.close()
     browser = null
 
-    // Return PDF as response
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
@@ -266,12 +284,10 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error generating PDF:', error)
     
-    // Cleanup browser if it exists
     if (browser) {
       try {
         await browser.close()
       } catch (closeError) {
-        // Ignore close errors
         console.log('Browser close error (ignored):', closeError.message)
       }
     }
@@ -286,7 +302,7 @@ export async function POST(request) {
   }
 }
 
-// Helper function to parse resume content into structured data (same as DOC version)
+// Helper function to parse resume content into structured data
 function parseResumeContent(resume) {
   const lines = resume.split('\n').map(line => line.trim()).filter(line => line)
   const data = {
@@ -306,19 +322,16 @@ function parseResumeContent(resume) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    // First line is name
     if (i === 0) {
       data.name = line.replace(/\*\*/g, '')
       continue
     }
 
-    // Second line is contact
     if (i === 1) {
       data.contact = line
       continue
     }
 
-    // Section headers
     if (line.match(/^\*\*[A-Z\s]+\*\*$/)) {
       const section = line.replace(/\*\*/g, '').trim()
       
@@ -336,20 +349,16 @@ function parseResumeContent(resume) {
       continue
     }
 
-    // Process content based on current section
     if (currentSection === 'summary') {
       if (!line.match(/^\*\*/) && !line.match(/^●/) && !line.match(/^•/)) {
         summaryLines.push(line)
       }
     } else if (currentSection === 'experience') {
-      // Job title with dates
       if (line.match(/^\*\*.*\d{4}/)) {
-        // Save previous job
         if (currentJob) {
           data.experience.push(currentJob)
         }
         
-        // Clean the line and extract title/dates
         const cleanLine = line.replace(/[_.]+/g, ' ').replace(/\s+/g, ' ')
         const titleMatch = cleanLine.match(/^\*\*(.*?)\*\*(.*)$/)
         
@@ -367,13 +376,11 @@ function parseResumeContent(resume) {
           }
         }
       }
-      // Company name
       else if (line.match(/^\*.*\*$/)) {
         if (currentJob) {
           currentJob.company = line.replace(/\*/g, '')
         }
       }
-      // Bullet points
       else if (line.match(/^[●•-]/)) {
         if (currentJob) {
           currentJob.bullets.push(line.substring(1).trim())
@@ -397,12 +404,10 @@ function parseResumeContent(resume) {
     }
   }
 
-  // Save last job
   if (currentJob) {
     data.experience.push(currentJob)
   }
 
-  // Combine summary lines
   data.summary = summaryLines.join(' ')
 
   return data
